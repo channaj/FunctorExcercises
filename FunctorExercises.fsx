@@ -87,7 +87,6 @@ let mapFunction'' : ('a -> 'b) -> Function<'x, 'a> -> Function<'x, 'b> =
   fun fn (Function f) ->
        Function (f >> fn)
 
-
 // Implement map for Async using computation expressions
 let mapAsync : ('a -> 'b) -> 'a Async -> 'b Async =
   fun fn a -> async {
@@ -99,7 +98,6 @@ let mapAsync : ('a -> 'b) -> 'a Async -> 'b Async =
 let stringLength : string -> int = String.length
 let something = None
 let somethingElse = mapOption stringLength something
-
 
 // What is another way of writing this function using less maps?
 let lists =
@@ -116,19 +114,23 @@ let mapper x = notImplemented ()
 let outputList input =
   mapList mapper input
 
-
 // What would be the value of endingResult below. Don't run it and find out, do it in your head.
 // Ok "Channa"
 let startingResult : Result<string, unit> = Ok "Channa"
 let id : 'a -> 'a = fun x -> x
 let endingResult = mapResult id startingResult
 
-
 // TODO :
 // Is this function Functor's map function? Explain why yes or no.
+// No. Because it constraints the output wrapped type to be int
+// Map does not specify the types of the values inside the structure
+// Instead it defines an abstract 'a and 'b type and works with those
+// which constrains its ability to manipulate these values
+// In this case, where int is hardcoded, the fake map function can do whatever
+// it wants to the value (the int) because it is not constrained to only
+// use the fn.
 let mapOptionInts : (int -> int) -> int option -> int option =
   fun fn opt -> notImplemented () // You don't need to see the implementation
-
 
 // Given the following types and functions, write an implementation for lengthOfContent
 type MyAsync<'a> = YouDontNeedToKnow
@@ -139,17 +141,18 @@ type HttpResult =
     Content : string }
 
 let mapMyAsync : ('a -> 'b) -> MyAsync<'a> -> MyAsync<'b> = fun fn x -> notImplemented ()
-let httpGet : Uri -> MyAsync<HttpResult> = notImplemented ()
+
+let httpGet : Uri -> MyAsync<HttpResult> =  fun uri -> notImplemented ()
+
 let stringLength' : string -> int = String.length
 
 let lengthOfContent : Uri -> MyAsync<int> =
   fun uri ->
      uri |> httpGet |> mapMyAsync (fun r -> stringLength' r.Content)
-
  
 // How could you refactor refactorMe to use maps?
-let readFile : string -> Async<byte[]> = notImplemented ()
-let writeFile : string -> string -> Async<unit> = notImplemented ()
+let readFile : string -> Async<byte[]> = fun s -> notImplemented ()
+let writeFile : string -> string -> Async<unit> = fun s -> notImplemented ()
 
 let refactorMe = async {
   let! bytes = readFile @"C:\Temp\Nice file.txt"
@@ -163,6 +166,28 @@ let refactorMe = async {
   let uniqueWords =
     Seq.append wordsFromFile wordsFromFile2
     |> Set.ofSeq
+  do!
+    String.Join (Environment.NewLine, uniqueWords)
+    |> writeFile (@"C:\Temp\All unique words.txt")
+
+  return Set.count uniqueWords
+}
+
+let getWordsFromFile : string -> Async<string[]> =
+  fun filePath ->
+   readFile filePath 
+   |> mapAsync (fun bytes ->
+                  let words = System.Text.Encoding.UTF8.GetString bytes
+                  words.Split ([|' '|], StringSplitOptions.RemoveEmptyEntries))
+
+let refactoredMe = async {
+  let! wordsFromFile1 = getWordsFromFile @"C:\Temp\Nice file.txt"
+  let! wordsFromFile2 = getWordsFromFile @"C:\Temp\Another nice file.txt"
+
+  let uniqueWords =
+    Seq.append wordsFromFile1 wordsFromFile2
+    |> Set.ofSeq
+
   do!
     String.Join (Environment.NewLine, uniqueWords)
     |> writeFile (@"C:\Temp\All unique words.txt")
