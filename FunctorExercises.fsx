@@ -120,9 +120,10 @@ let startingResult : Result<string, unit> = Ok "Channa"
 let id : 'a -> 'a = fun x -> x
 let endingResult = mapResult id startingResult
 
-// TODO :
 // Is this function Functor's map function? Explain why yes or no.
 // No. Because it constraints the output wrapped type to be int
+
+// Answer from Daniel λ Chambers:
 // Map does not specify the types of the values inside the structure
 // Instead it defines an abstract 'a and 'b type and works with those
 // which constrains its ability to manipulate these values
