@@ -26,10 +26,14 @@ let rec mapList : ('a -> 'b) -> 'a list -> 'b list =
         | a::b -> fn a :: mapList fn b 
         | [] -> []
 
-// TODO : implement tail recursive map for list  
+// Implement tail recursive map for list  
 let rec mapList'' : ('a -> 'b) -> 'a list -> 'b list =
      fun fn lst -> 
-       notImplemented ()
+        let rec rmap lst' acc =
+             match lst' with
+             | x::xs -> rmap xs (fn x :: acc)
+             | [] -> acc
+        rmap lst []
        
 // Implement map for Result
 let mapResult : ('a -> 'b) -> Result<'a, 'c> -> Result<'b, 'c> =
@@ -117,7 +121,7 @@ let outputList input =
 // What would be the value of endingResult below. Don't run it and find out, do it in your head.
 // Ok "Channa"
 let startingResult : Result<string, unit> = Ok "Channa"
-let id : 'a -> 'a = fun x -> x
+let id : 'a -> 'a = id
 let endingResult = mapResult id startingResult
 
 // Is this function Functor's map function? Explain why yes or no.
@@ -195,3 +199,4 @@ let refactoredMe = async {
 
   return Set.count uniqueWords
 }
+
