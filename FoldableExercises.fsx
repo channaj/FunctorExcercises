@@ -41,7 +41,12 @@ let repeatTailRecursive : int -> 'a -> MyList<'a> =
 // eg. countDownFrom 3 = Cons (3,Cons (2,Cons (1,Cons (0,EndOfList))))
 let countDownFrom : int -> MyList<int> =
   fun start ->
-    notImplemented ()
+    let rec step lst i =
+     if i <= start then
+      step (Cons (i, lst)) (i+1)
+     else
+      lst
+    step EndOfList 0
 
 
 // Is your `countDownFrom` tail recursive? If not, make it so below.
@@ -49,7 +54,12 @@ let countDownFrom : int -> MyList<int> =
 // your previous one to be _not_ tail recusive for comparison.
 let countDownFromTailRecursive : int -> MyList<int> =
   fun start ->
-    notImplemented ()
+    let rec step lst i =
+     if i <= start then
+      step (Cons (i, lst)) (i+1)
+     else
+      lst
+    step EndOfList 0
 
 
 // Implement the sum function that adds up all the ints in the list
