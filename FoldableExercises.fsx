@@ -2,6 +2,7 @@ open System
 
 let notImplemented () = raise <| NotImplementedException ()
 
+
 // Try to do each of these without using the compiler, then check your result
 // after you've written it. This means don't use VSCode with Ionide either ;)
 
@@ -13,14 +14,13 @@ type MyList<'a> =
 // The repeat function creates a list that contains the `x` parameter `count` times.
 // eg. repeat 3 "a" = Cons ("a",Cons ("a",Cons ("a",EndOfList)))
 // Implement this function using recursion.
-let repeat : int -> 'a -> MyList<'a> =
+let rec repeat : int -> 'a -> MyList<'a> =
   fun count x ->
-    let rec step i =
-     if i > 0 then
-      Cons (x, step (i-1))
-     else
-      EndOfList
-    step count
+    if count > 0 then
+     Cons (x, repeat (count-1) x)
+    else
+     EndOfList
+
 
 // Is your function tail recursive? You can check by using a large count number
 // like 30000 and seeing if it blows the stack.
@@ -28,12 +28,12 @@ let repeat : int -> 'a -> MyList<'a> =
 // copy your solution here and edit your previous one to be _not_ tail recusive
 // for comparison.
 let repeatTailRecursive : int -> 'a -> MyList<'a> =
-    fun count x ->
+  fun count x ->
     let rec step lst i =
-     if i > 0 then
-      step (Cons (x, lst)) (i-1)
-     else
-      lst
+      if i > 0 then
+        step (Cons (x, lst)) (i-1)
+      else
+        lst
     step EndOfList count
 
 // Implement `countDownFrom` which counts down to zero from the number you pass in
@@ -108,10 +108,10 @@ let partition : ('a -> bool) -> MyList<'a> -> MyList<'a> * MyList<'a> =
       match lst', out with
       | EndOfList, _ -> out
       | Cons (x, xs), (o1, o2) -> 
-          if (predicate x) then
-            step xs (Cons (x, o1), o2)
-          else
-            step xs (o1, Cons (x, o2))
+        if (predicate x) then
+          step xs (Cons (x, o1), o2)
+        else
+          step xs (o1, Cons (x, o2))
     let (a,b) = step lst (EndOfList, EndOfList)
     (reverseList a, reverseList b)
 
@@ -176,7 +176,7 @@ let betterPartition : ('a -> Choice<'b,'c,'d>) -> MyList<'a> -> MyList<'b> * MyL
           match makeChoice x with
           | Choice1Of3 a -> (Cons (a,o1), o2, o3)
           | Choice2Of3 b -> (o1, Cons (b,o2), o3)
-          | Choice3Of3 c -> (o1, o2, Cons(c,o3))
+          | Choice3Of3 c -> (o1, o2, Cons (c,o3))
         ) (EndOfList, EndOfList, EndOfList) lst
     (reverseList a, reverseList b, reverseList c)
 
