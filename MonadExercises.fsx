@@ -1,4 +1,5 @@
 open System
+open System.Web.UI.WebControls
 
 let notImplemented () = raise <| NotImplementedException ()
 
@@ -9,10 +10,14 @@ let notImplemented () = raise <| NotImplementedException ()
 // Implement bind for option
 let bindOption : ('a -> 'b option) -> 'a option -> 'b option =
   fun fn x ->
-    notImplemented ()
+    match x with
+    | Some x' -> fn x'
+    | None -> None
 
 
-// Without using the compiler, what is the type of unhappinessLevel? What is its value?
+
+// Without using the compiler, what is the type of unhappinessLevel? string option 
+// What is its value? None
 let endgameSpoilers : string option = None
 let aPersonListening : string -> int option = fun spoilers -> Some spoilers.Length
 let unhappinessLevel = endgameSpoilers |> bindOption aPersonListening
@@ -21,28 +26,37 @@ let unhappinessLevel = endgameSpoilers |> bindOption aPersonListening
 // Copy in your implementation of mapOption, pureOption and applyOption from ApplicativeExercises
 let mapOption : ('a -> 'b) -> 'a option -> 'b option =
   fun fn opt ->
-    notImplemented ()
+    match opt with
+    | Some a -> Some (fn a)
+    | None -> None
+
 
 let pureOption : 'a -> 'a option =
-  fun x ->
-    notImplemented ()
+  Some
 
 let applyOption : ('a -> 'b) option -> 'a option -> 'b option =
   fun fn x ->
-    notImplemented ()
-
-
+    match fn, x with
+    | Some fn', Some x' -> Some (fn' x')
+    | None,     Some _  -> None
+    | Some _, None      -> None
+    | None, None        -> None
+    
 // To show that every monad is an applicative, implement Applicative's apply for
 // option solely using Monad's bind
 let applyOptionViaMonad : ('a -> 'b) option -> 'a option -> 'b option =
   fun fn x ->
-    notImplemented ()
+    x 
+    |> bindOption (fun x' -> 
+      match fn with
+      | Some fn' -> Some (fn' x')
+      | None -> None)
 
 
 // The fact that you can implement apply using bind is a law that must be satisfied
 // in order for your type to be a valid Monad.
 // Run the below test to ensure that your applyOptionViaMonad produces the same results
-// as applyOption does:
+// as applyOption does: 
 let applicativeRelationLawForOptionTest : unit =
   let convertToString : int -> string = Convert.ToString
   let intOption = Some 42
@@ -65,26 +79,30 @@ let mkFullName : string option -> string option -> string option =
 
 let mkFullNameWithBind : string option -> string option -> string option =
   fun firstName surname ->
-    notImplemented ()
+    firstName
+    |> bindOption (fun f -> surname |> mapOption (fun s -> sprintf "%s %s" f s))
 
 
 // The bind function is sometimes expressed as the operator >>=
 // Implement the >>= operator, then refactor mkFullName to use it.
 let mkFullNameWithOperator : string option -> string option -> string option =
   fun firstName surname ->
-    let inline (>>=) x fn = notImplemented ()
-    notImplemented ()
-
+    let inline (>>=) x fn = bindOption fn x
+    firstName >>= (fun f -> surname |> mapOption (fun s -> sprintf "%s %s" f s))
 
 // Refactor mkFullName to use applicative apply instead of monad bind.
 let refactoredMkFullName : string option -> string option -> string option =
   fun firstName surname ->
-    notImplemented ()
+    let (<*>) fn x = applyOption fn x
+    let (<!>) fn x = mapOption fn x
+    (fun f s -> sprintf "%s %s" f s) <!> firstName <*> surname
 
 
 // Why might it be preferrable to use applicative apply rather than
 // monad bind in the case of mkFullName?
-
+// In case of mkFullName, there is no dependancy between obtaining firstname and surname.
+// Therefore, in theory if you want to parallalise obtaining firstname and surname you could safely do it using applicative style because that style does not assume the order of which the arguments are obtained.
+// However, in Monad style, the execution happens sequencially. So there is no way you could parallalise processing.
 
 // Refactor fancierMkFullName to use monad's bind. Put your solution in
 // fancierMkFullNameWithBind
@@ -106,11 +124,21 @@ let fancierMkFullName : string option -> string option -> string option =
 
 let fancierMkFullNameWithBind : string option -> string option -> string option =
   fun firstName surname ->
-    notImplemented ()
+    let inline (>>=) x fn = bindOption fn x
+    let validate input = if String.IsNullOrWhiteSpace input then None else Some input
+    let mkName f s = sprintf "%s %s" f s
+
+    firstName 
+    >>= validate
+    >>= (fun f -> surname >>= validate |> mapOption(fun s -> mkName f s)) 
+
 
 
 // Can you refactor fancierMkFullName to use applicative's apply instead of
 // monad's bind? If you can, do so. If you can't, explain why.
+
+// TODO :
+
 
 
 // Flattening a nested monad is fairly common, and this operation is known
@@ -118,31 +146,33 @@ let fancierMkFullNameWithBind : string option -> string option -> string option 
 // Implement a join function for the option type, using bindOption:
 let joinOption : 'a option option -> 'a option =
   fun nestedOption ->
-    notImplemented ()
-
+    nestedOption |> bindOption id
 
 // Implement bind for Result
 let bindResult : ('a -> Result<'b, 'e>) -> Result<'a, 'e> -> Result<'b, 'e> =
   fun fn result ->
-    notImplemented ()
-
+    match result with
+    | Ok a -> fn a
+    | Error err -> Error err
 
 // Copy in your implementations of map, pure and apply for Result from Applicative Exercises
-let mapResult : ('a -> 'b) -> Result<'a, 'e> -> Result<'b, 'e> =
+// Copy in your implementation of Functor map for Result from Functor Exercises
+let mapResult : ('a -> 'b) -> Result<'a, 'c> -> Result<'b, 'c> =
   fun fn res ->
-    notImplemented ()
+    match res with
+    | Ok a    -> Ok <| fn a 
+    | Error e -> Error e
 
-let pureResult : 'a -> Result<'a, 'e> =
-  fun x ->
-    notImplemented ()
+// Implement pure for Result
+let pureResult : 'a -> Result<'a, 'e> = Ok
 
-let applyResult : Result<'a -> 'b, 'e> -> Result<'a, 'e> -> Result<'b, 'e> =
+// Implement apply for Result
+let applyResult : Result<('a -> 'b), 'e> -> Result<'a, 'e> -> Result<'b, 'e> =
   fun fn x ->
-    match (fn, x) with
-    | Ok fn,   Ok x    -> Ok <| fn x
-    | Ok _,    Error e -> Error e
-    | Error e, _       -> Error e
-
+    match fn, x with
+    | Ok fn' , Ok x'  -> pureResult <| fn' x'
+    | Ok _ , Error e  -> Error e
+    | Error e, _      -> Error e
 
 // Due to bugs in legacy software, you've noticed that sometimes a broker's commission
 // percentage gets corrupted into a negative or zero percentage in the database.
@@ -160,22 +190,28 @@ let getLoanAmountFromDb : LoanId -> Result<decimal, SqlError> =
 
 let checkCommissionPercentageForCorruption : decimal -> Result<decimal, SqlError> =
   fun commissionPercentage ->
-    notImplemented ()
-
+    if commissionPercentage > 0m then Ok commissionPercentage
+    else Error CorruptCommission
 
 // Copy your calculateCommissionAmount implementation from your Applicative Exercises
 let calculateCommissionAmount : decimal -> decimal -> decimal =
   fun commissionPercentage loanAmount ->
-    notImplemented ()
-
+    let calculatedCommssionAmount = loanAmount * commissionPercentage
+    let minimumCommissionAmount = 1000m
+    if calculatedCommssionAmount < minimumCommissionAmount then minimumCommissionAmount else calculatedCommssionAmount
 
 // Enhance your implementation of getCommissionAmount from your Applicative Exercises
 // to use your new checkCommissionPercentageForCorruption function
 // Hint: Monad bind can help you!
 let getCommissionAmount : BrokerId -> LoanId -> Result<decimal, SqlError> =
   fun brokerId loanId ->
-    notImplemented ()
-
+    let inline (>>=) x fn = bindResult fn x
+    let inline (<*>) fn x = applyResult fn x
+    let inline (<!>) fn x = mapResult fn x
+    calculateCommissionAmount
+    <!> (getCommissionPercentageForBrokerFromDb brokerId >>= checkCommissionPercentageForCorruption)
+    <*> (getLoanAmountFromDb loanId)
+    
 
 // We implemented the Validation type in the Applicative Exercises. However, Validation
 // cannot be a Monad. To demonstrate this, we will try to implement Monad bind for
