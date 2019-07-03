@@ -224,36 +224,46 @@ type Validation<'a, 'e when 'e : comparison>  =
 
 let brokenBindValidation : ('a -> Validation<'b, 'e>) -> Validation<'a, 'e> -> Validation<'b, 'e> =
   fun fn x ->
-    notImplemented ()
+    match x with
+    | Success a -> fn a
+    | Failure e -> Failure e
 
 
 // Copy in your implementations of mapValidation, pureValidation, applyValidation
 // and validateStringRequired from Applicative Exercises
 let mapValidation : ('a -> 'b) -> Validation<'a, 'e> -> Validation<'b, 'e> =
   fun fn x ->
-    notImplemented ()
+    match x with
+    | Success x' -> Success <| fn x'
+    | Failure e  -> Failure e
 
-let pureValidation : 'a -> Validation<'a, 'e> =
-  fun x ->
-    notImplemented ()
+let pureValidation : 'a -> Validation<'a, 'e> = Success
 
 let applyValidation : Validation<('a -> 'b), 'e> -> Validation<'a, 'e> -> Validation<'b, 'e> =
   fun fn x ->
-    notImplemented ()
+   match fn, x with
+   | Success fn', Success x' -> Success <| fn' x'
+   | Success fn', Failure xe -> Failure xe
+   | Failure fne, Success _ -> Failure fne
+   | Failure fne, Failure xe -> Failure <| Set.union fne xe
 
 type ValidationError =
   | Required of name : string
 
 let validateStringRequired : string -> string -> Validation<string, ValidationError> =
   fun name str ->
-    notImplemented ()
-
+    if String.IsNullOrWhiteSpace str then Failure <| Set.singleton (Required name) else Success str
 
 // Implement applyValidation using your brokenBindValidation implementation as
 // applyValidationViaBrokenBind below
 let applyValidationViaBrokenBind : Validation<('a -> 'b), 'e> -> Validation<'a, 'e> -> Validation<'b, 'e> =
   fun fn x ->
-    notImplemented ()
+    let inline (>>=) x fn = brokenBindValidation fn x
+    x  >>= (fun x' -> 
+      match fn with
+      | Success fn' -> Success <| fn' x'
+      | Failure e -> Failure e)
+
 
 
 // Remember, one of the Monad laws is that if you implement Applicative's apply using bind
