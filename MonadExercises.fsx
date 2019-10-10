@@ -16,7 +16,7 @@ let bindOption : ('a -> 'b option) -> 'a option -> 'b option =
 
 
 
-// Without using the compiler, what is the type of unhappinessLevel? string option 
+// Without using the compiler, what is the type of unhappinessLevel? int option 
 // What is its value? None
 let endgameSpoilers : string option = None
 let aPersonListening : string -> int option = fun spoilers -> Some spoilers.Length
@@ -138,7 +138,14 @@ let fancierMkFullNameWithBind : string option -> string option -> string option 
 // monad's bind? If you can, do so. If you can't, explain why.
 
 // TODO :
-
+let fancierMkFullNameWithApply : string option -> string option -> string option =
+    fun firstName surname ->
+        let inline (>>=) x fn = bindOption fn x
+        let validate input = if String.IsNullOrWhiteSpace input then None else Some input
+        let mkName f s = sprintf "%s %s" f s
+        let inline (<!>) fn x = mapOption fn x
+        let inline (<*>) fn x = applyOption fn x
+        mkName <!> (firstName >>= validate) <*> (surname >>= validate)
 
 
 // Flattening a nested monad is fairly common, and this operation is known
@@ -288,41 +295,69 @@ let applicativeRelationLawForValidationTest : string =
     <!> validateStringRequired "First Name" firstName
     <*> validateStringRequired "Surname" surname
 
-  let applyResult = testApply applyValidation
-  let applyViaMonadResult = testApply applyValidationViaBrokenBind
+  let applyValidation = testApply applyValidation
+  let applyViaMonadValidation = testApply applyValidationViaBrokenBind
 
-  if applyResult <> applyViaMonadResult then
-    sprintf "Uh oh, applyResult (%A) is not the same as applyViaMonadResult (%A)!" applyResult applyViaMonadResult
+  if applyValidation <> applyViaMonadValidation then
+    sprintf "Uh oh, applyResult (%A) is not the same as applyViaMonadResult (%A)!" applyValidation applyViaMonadValidation
   else
     "Test passed?! 😯🤔"
 
 
 // Can you explain why the test failed?
+// Validation type is designed to collect multiple errors. 
+// Implementation of (broken)bind for Validation does not allow execution of the next function in the pipeline if the current Validation is in Failure state.
+// As a result applyValidationViaBrokenBind will short circuit on the first failure and will never get to collect the next failure.
 
+// On the other hand, implementation of apply without bind allows for checking for Failure state for both Validations (function and value) invloved. 
+// This allows it to merge Failure states of both Validations.
 
-// Could you think of a way to fix applyValidationViaBrokenBind so that the test passes?
+// Could you think of a way to fix applyValidationViaBrokenBind so that the test passes? 
+// Not without removing bind.
 // If so, demonstrate how. If not, explain why not.
+// Monadic bind will not allow progressing of the function chain when the failure path is encountered. This prevents Validation from collecting multiple failures.
 
 
 // Implement bind for list
 let bindList : ('a -> 'b list) -> 'a list -> 'b list =
   fun fn xs ->
-    notImplemented ()
+    let rec step xxs r =
+        match xxs with
+        | x::xs' -> step xs' (r @ (fn x))
+        | [] -> r
+        
+    step xs []
 
 
 // Copy in your implementations for mapList, pureList and applyList (the cross-product one)
 // from Applicative Exercises:
-let mapList : ('a -> 'b) -> 'a list -> 'b list =
-  fun fn lst ->
-    notImplemented ()
-
+   
+// Implement pure for list
 let pureList : 'a -> 'a list =
-  fun x ->
-    notImplemented ()
+  fun x -> [x]
 
+
+// Copy in your implementation of functor's map for list from Functor Exercises
+let rec mapList : ('a -> 'b) -> 'a list -> 'b list =
+     fun fn lst -> 
+        let rec rmap lst' acc =
+             match lst' with
+             | x::xs -> rmap xs (fn x :: acc)
+             | [] -> acc
+        List.rev <| rmap lst []
+
+
+// Implement apply for list
+// HINT: The usual implementation of applicative for list creates a cross-product of the
+// applied lists. For example (and note the ordering out the output!):
+// (fun a b -> (a, b)) <!> [1;2] <*> [3;4] = [(1,3);(1,4);(2,3);(2,4)]
 let applyList : ('a -> 'b) list -> 'a list -> 'b list =
   fun fns xs ->
-    notImplemented ()
+    let rec applyList' fns' acc =
+      match fns' with
+      | fn'' :: fns'' -> applyList' fns'' (acc @ mapList fn'' xs) 
+      | [] -> acc
+    applyList' fns []
 
 
 // Another Monad law that must be satified that is the "right identity" law
@@ -337,7 +372,6 @@ let rightIdentityMonadLawListTest : unit =
   let result = bindList pureList myList
   if result <> myList then
     failwithf "Your bindList implementation is not lawful (right identity)! result: %A. myList: %A" result myList
-
 
 // The "left identity" law is another Monad law that must be satisfied. It states that:
 // pure a >>= fn  =  fn a
@@ -400,8 +434,8 @@ let animes : Map<Decade, Anime list> =
 
 let getAnimesForDecades : Decade list -> Anime list =
   fun decades ->
-    notImplemented ()
-
+    decades
+    |> bindList (fun d -> animes |> Map.find d)
 
 // As list is a Monad, you can implement the nested-monad flattening
 // function 'join' for it. In the case of lists, joinList is a function
@@ -411,7 +445,7 @@ let getAnimesForDecades : Decade list -> Anime list =
 // Implement joinList using bindList
 let joinList : 'a list list -> 'a list =
   fun lists ->
-    notImplemented ()
+    lists |> bindList id
 
 
 // The built-in Async type in F# is a monad! In fact, the async computation
