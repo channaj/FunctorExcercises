@@ -467,16 +467,20 @@ let joinList : 'a list list -> 'a list =
 // Before continuing copy in your mapAsync, pureAsync and applyAsync implementations
 // from Applicative Exercises
 let pureAsync : 'a -> Async<'a> =
-  fun x ->
-    notImplemented ()
+  fun x -> async { return x }
 
 let applyAsync : Async<'a -> 'b> -> Async<'a> -> Async<'b> =
-  fun fn x ->
-    notImplemented ()
+  fun fn x -> async {
+    let! fn' = fn
+    let! x' = x
+    return fn' x'
+  }
 
 let mapAsync : ('a -> 'b) -> Async<'a> -> Async<'b> =
-  fun fn x ->
-    notImplemented ()
+  fun fn x -> async {
+    let! a = x
+    return (fn a)
+  }
 
 let bindAsync : ('a -> Async<'b>) -> Async<'a> -> Async<'b> = fun fn x -> async.Bind (x, fn)
 let readFile : string -> Async<byte[]> = fun file -> notImplemented ()
@@ -497,9 +501,11 @@ let copyFile : string -> string -> Async<int> =
 
 let desugaredCopyFile : string -> string -> Async<int> =
   fun source destination ->
-    notImplemented ()
-
-
+    readFile source 
+    |> bindAsync(fun contents -> 
+       writeFile destination contents |> ignore
+       pureAsync contents.Length)
+    
 // As you can probably see, computation expressions are a great way of using
 // monadic binding in a way that makes it much more readable! To really ram
 // home how useful they are, desugar the refactorMe async value below into
@@ -525,9 +531,19 @@ let refactorMe = async {
 
 let derefactorMe : unit -> Async<int> =
   fun () ->
-    notImplemented ()
-
-
+    readFile @"C:\Temp\Nice file.txt"
+    |> mapAsync (fun bytes -> (System.Text.Encoding.UTF8.GetString bytes).Split ([|' '|], StringSplitOptions.RemoveEmptyEntries))
+    |> bindAsync (fun wordsFromFile1 -> 
+        readFile @"C:\Temp\Another nice file.txt"
+        |> mapAsync (fun bytes2 -> (System.Text.Encoding.UTF8.GetString bytes2).Split ([|' '|], StringSplitOptions.RemoveEmptyEntries))
+        |> bindAsync (fun wordsFromFile2 -> 
+            let uniqueWords = Seq.append wordsFromFile1 wordsFromFile2 |> Set.ofSeq
+            String.Join (Environment.NewLine, uniqueWords)
+            |> writeStringFile (@"C:\Temp\All unique words.txt") |> ignore
+            Set.count uniqueWords |> pureAsync
+           )
+       )
+    
 // A very useful monad to have in your toolbox in the modern area of 'async-everything'
 // is the AsyncResult monad, which is a combination of the Async and Result type.
 // This monad is able to perform actions asynchronously, but also has Result's behaviour
@@ -541,51 +557,63 @@ type AsyncResult<'Result, 'Error> = AsyncResult of Async<Result<'Result, 'Error>
 // HINT: You can reuse mapAsync and mapResult to do this!
 let mapAsyncResult : ('a -> 'b) -> AsyncResult<'a, 'e> -> AsyncResult<'b, 'e> =
   fun fn x ->
-    notImplemented ()
-
+    match x with
+    | AsyncResult a -> a
+    |> mapAsync (mapResult fn)
+    |> AsyncResult
 
 // Copy in your mapResultError implementation from Functor Exercises
 let mapResultError : ('a -> 'b) -> Result<'c, 'a> -> Result<'c, 'b> =
   fun fn res ->
-    notImplemented ()
+    match res with
+    | Ok a -> Ok a
+    | Error e -> fn e |> Error
 
 
 // Let's also implement map for the Error side of the Result.
 // HINT: Your mapResultError from above will be useful!
 let mapErrorAsyncResult : ('e1 -> 'e2) -> AsyncResult<'a, 'e1> -> AsyncResult<'a, 'e2> =
   fun fn x ->
-    notImplemented ()
+    match x with
+    | AsyncResult a -> a
+    |> mapAsync (mapResultError fn)
+    |> AsyncResult
 
 
 // Since AsyncResult is a Monad, it is also an Applicative!
 // Implement Applicative's pure for AsyncResult
 // HINT: You can reuse pureAsync and pureResult to do this
 let pureAsyncResult : 'a -> AsyncResult<'a, 'e> =
-  fun x ->
-    notImplemented ()
+  fun x -> x |> (pureResult >> (pureAsync >> AsyncResult))
 
 
 // We need a way of constructing an error AsyncResult value.
 // Implement errorAsyncResult below
 let errorAsyncResult : 'e -> AsyncResult<'a, 'e> =
   fun error ->
-    notImplemented ()
+    Error error |> (pureAsync >> AsyncResult)
 
 
 // Implement Applicative's apply for AsyncResult
 // HINT: You can reuse mapAsync, applyAsync, and applyResult to do this
 let applyAsyncResult : AsyncResult<('a -> 'b), 'e> -> AsyncResult<'a, 'e> -> AsyncResult<'b, 'e> =
   fun fn x ->
-    notImplemented ()
+    let (fn,  x) =
+      match fn, x with
+      | AsyncResult fn', AsyncResult x' -> (fn', x')
 
+    fn 
+    |> bindAsync (fun fn' -> 
+        x |> mapAsync (fun b' -> applyResult fn' b'))
+    |> AsyncResult
 
 // Implement Monad's bind for AsyncResult
 // HINT: You can use async computation expressions to do this
 let bindAsyncResult : ('a -> AsyncResult<'b, 'e>) -> AsyncResult<'a, 'e> -> AsyncResult<'b, 'e> =
   fun fn x ->
-    notImplemented ()
+   notImplemented()
 
-
+   
 // We need a way of converting an Async into an AsyncResult, preferrably
 // one that captures any IO errors in the AsyncResult error type.
 // Implement asyncResultFromAsync
